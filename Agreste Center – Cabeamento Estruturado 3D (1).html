@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agreste Center – Cabeamento Estruturado 3D</title>
+<style>
+:root{--bg:#f4f6fa;--fg:#1b1f27;--mut:#5b6472;--card:#fff;--bd:#d9dee7;--ac:#0b57d0;--acf:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151c;--fg:#e8eaf0;--mut:#a3abb8;--card:#1c212b;--bd:#323947;--ac:#8ab4f8;--acf:#0b1a33}}
+:root[data-theme="dark"]{--bg:#12151c;--fg:#e8eaf0;--mut:#a3abb8;--card:#1c212b;--bd:#323947;--ac:#8ab4f8;--acf:#0b1a33}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
+header{padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;border-bottom:1px solid var(--bd)}
+h1{font-size:16px;margin:0;flex:1 1 220px}h1 small{display:block;font-weight:400;color:var(--mut);font-size:12px}
+.grp{display:flex;gap:4px;flex-wrap:wrap}
+button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;cursor:pointer}
+button.on{background:var(--ac);color:var(--acf);border-color:var(--ac)}
+button.big{font-weight:600;padding:8px 14px;border-color:var(--ac)}
+main{flex:1;min-height:0;display:flex;gap:10px;padding:10px;flex-wrap:wrap}
+#cv{flex:1 1 420px;min-height:380px;position:relative;background:var(--card);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+#cv canvas{display:block;width:100%;height:100%}
+aside{flex:0 1 270px;min-width:240px;display:flex;flex-direction:column;gap:10px;overflow:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px}
+.card h2{font-size:13px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+.lg{display:flex;gap:8px;align-items:flex-start;padding:5px 4px;border-radius:6px;cursor:pointer;user-select:none}
+.lg:hover{background:var(--bg)}.lg.off{opacity:.4}
+.sw{width:14px;height:14px;border-radius:4px;flex:none;margin-top:2px;border:1px solid rgba(0,0,0,.25)}
+.lg b{display:block;font-size:13px}.lg span{font-size:12px;color:var(--mut)}
+#tip{position:absolute;pointer-events:none;background:#111c;color:#fff;padding:3px 8px;border-radius:6px;font-size:12px;display:none;white-space:nowrap}
+#info b{font-size:15px}#info p{margin:4px 0 0;color:var(--mut)}
+#co{position:absolute;pointer-events:none;display:none;max-width:210px;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.35;background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--ac);box-shadow:0 4px 14px #0004;z-index:5}
+#co b{display:block;font-size:14px;margin-bottom:2px}#co span{color:var(--mut)}
+.hint{position:absolute;left:10px;bottom:8px;font-size:11px;color:var(--mut)}
+</style></head><body>
+<header>
+ <h1>Agreste Center – Modelo 3D de Cabeamento Estruturado<small>Surubim/PE · Térreo + 2 pavimentos · lote 10 m × 22 m</small></h1>
+ <div class="grp" id="fl"></div>
+ <div class="grp"><button id="vIso" class="on">Isométrica</button><button id="vTop">Planta (topo)</button><button id="vSide">Corte lateral</button><button id="xr">Raio-X</button><button id="cb">Dicas no mouse</button><button id="mb">🪑 Mobiliar</button><button id="ph" class="big">📷 Vista da foto</button></div>
+ <button id="ex" class="big">⬍ Explodir andares (projeto completo)</button>
+</header>
+<main>
+ <div id="cv"><div id="tip"></div><div id="co"></div><div class="hint">Arraste para girar livremente em qualquer direção · Scroll: zoom · Clique: detalhes</div></div>
+ <aside>
+  <div class="card" id="info"><h2>Item selecionado</h2><b>Nenhum</b><p>Clique em qualquer estrutura do modelo ou da legenda.</p></div>
+  <div class="card"><h2>Legenda (clique p/ ocultar)</h2><div id="lg"></div></div>
+ </aside>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const H=3.2,W=20,D=10,GAP=4.2,TY=H-0.35,SPZ=-3.2;
+const LAYERS={
+ rack:{n:'Armário de equipamentos (rack)',c:0x37474f,d:'Guarda os aparelhos de rede desse andar, como um armário de metal.'},
+ equip:{n:'Aparelho dentro do armário',c:0x00897b,d:'Aparelhos como o roteador, o switch e a bateria (nobreak) que fazem a internet funcionar.'},
+ outlet:{n:'Tomada de rede (P-x-nn)',c:0x1e88e5,d:'Tomada na parede onde se liga o cabo do computador.'},
+ ap:{n:'Wi-Fi de teto (AP-x nn)',c:0xff5722,d:'Aparelho de Wi-Fi instalado no teto, para dar internet sem fio.'},
+ tray:{n:'Calha dos cabos (eletrocalha)',c:0x78909c,d:'Canaleta no teto que esconde e organiza os cabos.'},
+ cable:{n:'Cabo de rede (Cat6)',c:0x90caf9,d:'Cabo que leva a internet do armário até a tomada ou o Wi-Fi.'},
+ fiber:{n:'Cabo entre andares (fibra óptica)',c:0xffd600,d:'Cabo especial que leva a internet de um andar a outro.'},
+ mob:{n:'Móveis (só ilustração)',c:0x8d5a34,d:'Mesas, cadeiras e portas. Servem só para mostrar o ambiente.'}
+};
+const FN=['Térreo','1º Andar','2º Andar'],FC=['T','1A','2A'];
+const cv=document.getElementById('cv');
+const scene=new THREE.Scene();
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));cv.appendChild(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(40,1,.1,300);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.08;controls.minDistance=3;controls.maxDistance=140;controls.rotateSpeed=.9;controls.zoomSpeed=.9;controls.screenSpacePanning=true;
+scene.add(new THREE.AmbientLight(0xffffff,.75));
+const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(20,35,25);scene.add(dl);
+const M=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.5,metalness:.2},o));
+const wallM=M(0xc8d1d9,{transparent:true,opacity:.6,side:THREE.DoubleSide,depthWrite:false});
+const slabM=M(0xdde2e6,{transparent:true,opacity:.95});
+const glassM=M(0x88c0d0,{transparent:true,opacity:.18,depthWrite:false});
+const items=[],groups=[],labels=[];
+let floorSel='all',ex=0,exT=0,tween=0,goal={p:new THREE.Vector3(),t:new THREE.Vector3()};
+const on={};Object.keys(LAYERS).forEach(k=>on[k]=true);on.mob=false;const LGEL={};
+
+function reg(mesh,layer,f,name,desc){mesh.userData={layer,f,name,desc};groups[f].add(mesh);items.push(mesh);return mesh}
+function box(w,h,d,m,x,y,z){const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x,y,z);return b}
+function label(t,g){const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');
+ x.fillStyle='rgba(20,28,40,.85)';x.beginPath();x.roundRect(0,0,256,64,14);x.fill();x.fillStyle='#fff';x.font='bold 32px system-ui';x.textAlign='center';x.fillText(t,128,44);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(4,1,1);s.position.set(-W/2-2.4,1.6,D/2);g.add(s);}
+function line(pts,f,name,col){const g=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(...p)));
+ const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col}));l.userData={layer:'cable',f,name,desc:LAYERS.cable.d,noPick:true};groups[f].add(l);items.push(l)}
+function spread(a,b,n){return n==1?[(a+b)/2]:Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1))}
+function outletPos(n){const nb=Math.ceil(n*.6),r=[];
+ spread(-5.5,8,nb).forEach(x=>r.push([x,.45,-D/2+.15,'b']));
+ if(n-nb)spread(-2.5,3.5,n-nb).forEach(z=>r.push([W/2-.15,.45,z,'r']));return r}
+
+const CFG=[
+ {n:8,ap:[[-4,1],[5,1]],rack:{h:2,y:1,
+  eq:[['RT-01','Traz a internet para o prédio e a distribui com segurança.',0x7e57c2,.16],['SW-T01','Espalha a internet para os cabos do Térreo.',0x00897b,.14],['PP-T01','Painel onde todos os cabos do Térreo se conectam.',0x9e9e9e,.14],['SRV-T01','Computador que guarda arquivos e serviços do prédio.',0x455a64,.3],['UPS-T01','Bateria que mantém tudo ligado se faltar energia.',0xfdd835,.5]]}},
+ {n:12,ap:[[-4,1],[5,1]],rack:{h:.9,y:1.6,
+  eq:[['PP-1A01','Painel onde todos os cabos do 1º andar se conectam.',0x9e9e9e,.14],['SW-1A01','Espalha a internet para os cabos do 1º andar.',0x00897b,.14],['UPS-1A01','Bateria que mantém tudo ligado se faltar energia.',0xfdd835,.25]]}},
+ {n:10,ap:[[-4,1],[5,1]],rack:{h:.9,y:1.6,
+  eq:[['PP-2A01','Painel onde todos os cabos do 2º andar se conectam.',0x9e9e9e,.14],['SW-2A01','Espalha a internet para os cabos do 2º andar.',0x00897b,.14],['UPS-2A01','Bateria que mantém tudo ligado se faltar energia.',0xfdd835,.25]]}}];
+
+CFG.forEach((c,f)=>{
+ const g=new THREE.Group();scene.add(g);groups.push(g);const code=FC[f];
+ g.add(box(W,.25,D,slabM,0,-.125,0));
+ g.add(box(W,H,.2,wallM,0,H/2,-D/2));g.add(box(.2,H,D,wallM,-W/2,H/2,0));g.add(box(.1,H,D,glassM,W/2,H/2,0));
+ label(FN[f],g);
+ // rack
+ const rx=-8.8,rz=-4.1,rk=c.rack;
+ reg(box(.9,rk.h,.9,M(0x263238,{transparent:true,opacity:.35,depthWrite:false}),rx,rk.y,rz),'rack',f,f==0?'Armário principal (Térreo)':`Armário do ${FN[f]}`,f==0?'Armário principal. É daqui que a internet chega e se espalha para os outros dois andares.':`Armário do ${FN[f]}. Recebe a internet vinda do andar de baixo e distribui pelas tomadas e pelo Wi-Fi.`);
+ let y=rk.y+rk.h/2-.05;
+ rk.eq.forEach(e=>{const h=e[3];y-=h/2;reg(box(.8,h,.8,M(e[2]),rx,y,rz+.02),'equip',f,e[0],e[1]);y-=h/2+.04});
+ // trays
+ const tray=(x1,z1,x2,z2)=>{const L=Math.hypot(x2-x1,z2-z1),t=box(.3,.12,L,M(0x78909c,{metalness:.7}),(x1+x2)/2,TY,(z1+z2)/2);t.rotation.y=Math.atan2(x2-x1,z2-z1);reg(t,'tray',f,`Eletrocalha ${FN[f]}`,LAYERS.tray.d)};
+ tray(rx,rz,rx,SPZ);tray(rx,SPZ,8.5,SPZ);tray(8.5,SPZ,9.85,SPZ);
+ // outlets
+ outletPos(c.n).forEach((p,i)=>{const id=`P-${code==='T'?'T':code}-${String(i+1).padStart(2,'0')}`;
+  const o=new THREE.Mesh(new THREE.SphereGeometry(.24,14,14),M(0x1e88e5,{emissive:0x0a2d54}));o.position.set(p[0],p[1],p[2]);
+  reg(o,'outlet',f,id,`Tomada de rede da parede – ${FN[f]}. Aqui se liga o cabo do computador.`);
+  line(p[3]=='b'?[[p[0],TY,SPZ],[p[0],TY,p[2]],[p[0],p[1],p[2]]]:[[8.5,TY,SPZ],[9.85,TY,SPZ],[9.85,TY,p[2]],[p[0],p[1],p[2]]],f,id,0x64b5f6)});
+ // APs
+ c.ap.forEach((a,i)=>{const id=`AP-${code}${String(i+1).padStart(2,'0')}`;
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.65,.22,16),M(0xff5722,{emissive:0x441100}));m.position.set(a[0],H-.15,a[1]);
+  reg(m,'ap',f,id,`Wi-Fi instalado no teto – ${FN[f]}.`);
+  line([[a[0],TY,SPZ],[a[0],TY,a[1]],[a[0],H-.15,a[1]]],f,id,0xffab91)});
+});
+// ---- mobiliário ----
+const wood=M(0x8d5a34,{roughness:.7}),dark=M(0x23262b,{roughness:.6}),door=M(0x9a6432),wall2=M(0xe6e2da,{transparent:true,opacity:.7}),green=M(0x3f8f4a),white=M(0xf5f5f5),silver=M(0xb0b6bd,{metalness:.6});
+const FM=(m,f)=>{m.userData={layer:'mob',f,name:'Mobiliário',desc:'',noPick:true};groups[f].add(m);items.push(m);return m};
+const bx=(w,h,d,m,x,y,z)=>box(w,h,d,m,x,y,z);
+function chair(f,x,z,ry){const g=new THREE.Group();g.add(bx(.5,.06,.5,dark,0,.47,0),bx(.5,.5,.06,dark,0,.75,-.24),bx(.06,.4,.06,silver,0,.25,0),bx(.45,.03,.45,silver,0,.03,0));g.position.set(x,0,z);g.rotation.y=ry;FM(g,f)}
+function desk(f,x,z,w,d,mon){const g=new THREE.Group();g.add(bx(w,.06,d,wood,0,.75,0),bx(.05,.72,d-.1,wood,-w/2+.05,.36,0),bx(.05,.72,d-.1,wood,w/2-.05,.36,0));
+ if(mon)for(let i=0;i<mon;i++){const mx=(i-(mon-1)/2)*Math.min(1.1,w/mon);g.add(bx(.5,.32,.03,dark,mx,1.0,-.1),bx(.08,.2,.08,dark,mx,.88,-.1))}
+ g.position.set(x,0,z);FM(g,f)}
+function cluster(f,cx,cz,n){desk(f,cx,cz,n*1.1,.9,n);for(let i=0;i<n;i++){const x=cx+(i-(n-1)/2)*1.1;chair(f,x,cz-.85,0);chair(f,x,cz+.85,Math.PI)}}
+function plant(f,x,z){const g=new THREE.Group();g.add(new THREE.Mesh(new THREE.CylinderGeometry(.3,.25,.5,12),white),new THREE.Mesh(new THREE.SphereGeometry(.5,12,12),green));g.children[0].position.y=.25;g.children[1].position.y=1;g.position.set(x,0,z);FM(g,f)}
+CFG.forEach((c,f)=>{
+ [-4.5,1.5].forEach(x=>FM(bx(.12,H,6,wall2,x,H/2,-2),f));
+ [-3,3.5].forEach(x=>FM(bx(1.1,2.2,.08,door,x,1.1,-D/2+.1),f));
+ desk(f,-7,1.8,1.8,.8,1);chair(f,-7,2.8,Math.PI);FM(bx(.5,.03,.35,silver,-7.4,.8,1.7),f);
+ desk(f,8.6,3.3,1.6,.8,1);chair(f,8.6,4.2,Math.PI);
+ if(f==0){desk(f,-7.4,-.6,2.2,1.1,0);[-.8,0,.8].forEach(k=>{chair(f,-7.4+k,-1.5,0);chair(f,-7.4+k,.3,Math.PI)});plant(f,-9.3,4);
+  cluster(f,-1.5,0,3);cluster(f,5,-1,3);cluster(f,5,2.6,3);FM(bx(.5,2.2,1.2,wood,9.4,1.1,-1.5),f);FM(bx(2.2,1.2,.04,white,1.5,1.6,-D/2+.1),f)}
+ if(f==1){cluster(f,-1.5,0,3);cluster(f,5,-1,3);cluster(f,5,2.6,3);plant(f,-9.3,4)}
+ if(f==2){desk(f,-1.5,0,4,1.4,0);for(let i=0;i<4;i++){const x=-1.5+(i-1.5)*.95;chair(f,x,-1.1,0);chair(f,x,1.1,Math.PI)}chair(f,-4,0,Math.PI/2);chair(f,1,0,-Math.PI/2);
+  FM(bx(2.4,1.2,.04,white,-1.5,1.6,-D/2+.1),f);cluster(f,5,0.5,3);plant(f,9.3,-3.5)}
+});
+// fiber backbone (2 segments)
+const bbSeg=[['BK-T-1A','Cabo que leva a internet do Térreo até o 1º andar.'],['BK-1A-2A','Cabo que leva a internet do 1º andar até o 2º andar.']].map((s,i)=>{
+ const m=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,1,12),M(0xffd600,{emissive:0x554400,metalness:.6}));
+ m.position.x=-9.7;m.position.z=-4.6;m.userData={layer:'fiber',f:-1,name:s[0],desc:s[1]};scene.add(m);items.push(m);return m});
+
+// UI
+const $=id=>document.getElementById(id);
+const lg=$('lg');Object.entries(LAYERS).forEach(([k,v])=>{const d=document.createElement('div');d.className='lg';
+ d.innerHTML=`<i class="sw" style="background:#${v.c.toString(16).padStart(6,'0')}"></i><div><b>${v.n}</b><span>${v.d}</span></div>`;
+ d.onclick=()=>{on[k]=!on[k];if(k==='mob')$('mb').classList.toggle('on',on[k]);d.classList.toggle('off',!on[k]);vis()};d.classList.toggle('off',!on[k]);LGEL[k]=d;lg.appendChild(d)});
+const fl=$('fl');['Todos',...FN].forEach((t,i)=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>setFloor(i==0?'all':i-1);fl.appendChild(b)});
+function setFloor(v){floorSel=v;[...fl.children].forEach((b,i)=>b.classList.toggle('on',(v==='all'?0:v+1)==i));vis();reframe()}
+function vis(){items.forEach(o=>{const u=o.userData;o.visible=on[u.layer]&&(floorSel==='all'||(u.f>=0?u.f===floorSel:false));if(!o.visible&&sel===o)pick(null)});
+ groups.forEach((g,i)=>g.visible=floorSel==='all'||floorSel===i)}
+let mode='iso';
+function S(e){return H+GAP*e}
+function calcTD(){const s=S(exT);let ty,dist;
+ if(floorSel==='all'){ty=(2*s+H)/2;dist=32+exT*20}else{ty=floorSel*s+1.2;dist=24}
+ return[ty,dist]}
+// Reposiciona o foco (andar/explosão) SEM forçar um ângulo fixo: mantém a direção
+// em que a câmera já está, para o usuário poder girar livremente para qualquer lado.
+function reframe(){const[ty,dist]=calcTD();const dir=camera.position.clone().sub(controls.target);
+ const len=Math.max(dir.length(),dist*.6)||dist;dir.normalize();
+ goal.t.set(0,ty,0);goal.p.copy(goal.t).addScaledVector(dir,len);tween=90}
+// Vistas prontas (atalhos), mas o arraste do mouse sempre pode girar para qualquer direção depois.
+function go(m){mode=m;$('vIso').classList.toggle('on',m=='iso');$('vTop').classList.toggle('on',m=='top');$('vSide').classList.toggle('on',m=='side');
+ const[ty,dist]=calcTD();
+ goal.t.set(0,ty,0);
+ goal.p.copy(m=='side'?new THREE.Vector3(0,ty+1,dist*1.15):m=='top'?new THREE.Vector3(0,ty+dist*1.1,.01):new THREE.Vector3(.62,.42+exT*.1,.85).normalize().multiplyScalar(dist).add(goal.t));
+ tween=120}
+$('vIso').onclick=()=>go('iso');$('vTop').onclick=()=>go('top');$('vSide').onclick=()=>go('side');
+$('xr').onclick=e=>{const x=e.target.classList.toggle('on');wallM.opacity=x?.12:.6;slabM.opacity=x?.25:.95};
+$('ex').onclick=()=>{exT=exT?0:1;$('ex').textContent=exT?'⬍ Recolher prédio (planta única)':'⬍ Explodir andares (projeto completo)';reframe()};
+
+// picking
+const ray=new THREE.Raycaster(),mp=new THREE.Vector2();let sel=null,down=[0,0];
+const bh=new THREE.BoxHelper(new THREE.Object3D(),0x00e676);bh.visible=false;scene.add(bh);
+function hit(e){const r=renderer.domElement.getBoundingClientRect();mp.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+ ray.setFromCamera(mp,camera);return ray.intersectObjects(items.filter(o=>o.visible&&!o.userData.noPick),false)[0]?.object}
+function pick(o){sel=o;bh.visible=!!o;if(o)bh.setFromObject(o);const u=o&&o.userData;
+ $('info').innerHTML=o?`<h2>Item selecionado</h2><b>${u.name}</b><p><i class="sw" style="display:inline-block;vertical-align:middle;background:#${LAYERS[u.layer].c.toString(16).padStart(6,'0')}"></i> ${LAYERS[u.layer].n}${u.f>=0?' · '+FN[u.f]:''}</p><p>${u.desc}</p>`:'<h2>Item selecionado</h2><b>Nenhum</b><p>Clique em qualquer estrutura do modelo.</p>'}
+const el=renderer.domElement,tip=$('tip'),co=$('co');
+el.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+el.addEventListener('pointerup',e=>{if(Math.hypot(e.clientX-down[0],e.clientY-down[1])<6)pick(hit(e)||null)});
+// Dicas no mouse: só aparecem quando o botão "Dicas no mouse" está ativo (coOn) e o
+// ponteiro está sobre um ponto do cabeamento (tomada, Wi-Fi, armário, cabo, fibra).
+let coOn=false;
+el.addEventListener('pointermove',e=>{
+ if(e.buttons)return;
+ const o=hit(e);const r=cv.getBoundingClientRect();
+ if(!o){tip.style.display='none';co.style.display='none';return}
+ if(coOn){
+  tip.style.display='none';
+  const x=Math.min(e.clientX-r.left+18,cv.clientWidth-220),y=Math.min(e.clientY-r.top+18,cv.clientHeight-70);
+  co.style.left=x+'px';co.style.top=y+'px';co.style.display='block';
+  co.innerHTML=`<b>${o.userData.name}</b><span>${o.userData.desc}</span>`;
+ }else{
+  co.style.display='none';
+  tip.style.display='block';tip.style.left=e.clientX-r.left+12+'px';tip.style.top=e.clientY-r.top+12+'px';tip.textContent=o.userData.name;
+ }
+});
+el.addEventListener('pointerleave',()=>{tip.style.display='none';co.style.display='none'});
+controls.addEventListener('start',()=>tween=0);
+
+function setMob(v){on.mob=v;$('mb').classList.toggle('on',v);LGEL.mob.classList.toggle('off',!v);vis()}
+$('mb').onclick=()=>setMob(!on.mob);
+$('ph').onclick=()=>{setMob(true);exT=1;$('ex').textContent='⬍ Recolher prédio (planta única)';coOn=true;$('cb').classList.add('on');setFloor('all');go('side')};
+$('cb').onclick=e=>{coOn=e.target.classList.toggle('on');if(!coOn)co.style.display='none'};
+new ResizeObserver(()=>{const w=cv.clientWidth,h=cv.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}).observe(cv);
+go('iso');camera.position.copy(goal.p);controls.target.copy(goal.t);setFloor('all');
+(function loop(){requestAnimationFrame(loop);
+ ex+=(exT-ex)*.07;const s=S(ex);groups.forEach((g,i)=>g.position.y=i*s);
+ bbSeg.forEach((m,i)=>{m.scale.y=s;m.position.y=i*s+2+s/2});
+ if(tween>0){tween--;camera.position.lerp(goal.p,.08);controls.target.lerp(goal.t,.08)}
+ controls.update();if(sel){bh.setFromObject(sel)}
+ renderer.render(scene,camera)})();
+</script></body></html>
